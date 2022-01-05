@@ -1,0 +1,94 @@
+---
+title: "ImportIch"
+author: "Catarina Pien"
+date: "1/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(dplyr)
+library(readxl)
+```
+
+#Ichthyoplankton
+This is the first format, where time and date were "General" in Excel file.
+```{r}
+ich_files <- list.files("Data_Ich", pattern="*.xlsx", full.names=TRUE)
+
+ich_df <- lapply(ich_files, read_excel, sheet = "Taxonomy Data", skip=6, col_types = c("text", "text", "skip", "guess", "skip", "skip", "text", "text", "text", "text", "text", "text", "text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip"))
+
+ich_df1 <- lapply(ich_df, `[`, -c(1:1),)
+
+ich_comb_1 <- bind_rows(ich_df1, .id = "dataset")
+str(ich_comb_1)
+```
+
+This is the second format, where time was a time and date was a date
+```{r}
+ich_files2 <- list.files("Data_Ich/Format2", pattern="*.xlsx", full.names=TRUE)
+
+ich_df2 <- lapply(ich_files2, read_excel, sheet = "Taxonomy Data", skip=6, col_types = c("text", "text", "skip", "guess", "skip", "skip", "text", "text", "text", "text", "text", "text", "text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip"))
+
+ich_df_f2 <- lapply(ich_df2, `[`, -c(1:1),)
+ich_comb_2 <- bind_rows(ich_df1, .id = "dataset")
+
+str(ich_comb_2)
+```
+
+Combine
+```{r}
+ich_comb <- rbind(ich_comb_1, ich_comb_2)
+```
+
+Pivot lengths
+```{r}
+ich_long <- pivot_longer(ich_comb, cols=9:38, values_to = "Length_mm") %>%
+  filter(!is.na(Length_mm))
+```
+
+Re-organize
+Add Larval columns
+```{r}
+ich_clean <- ich_long %>%
+  janitor::clean_names() %>%
+  rename(life_stage = life_stage_y_l_j) %>%
+  mutate(measuring_program = "YBFMP",
+         date = lubridate::mdy(date),
+         sam_code = "",
+         short_name = "ICH",
+         attribute = "Ichthyoplankton", 
+         total_length = "",
+         life_stage = replace(life_stage, life_stage == "Preflexion", 
+                              "L-Preflexion"),
+         letter = substr(life_stage, 1,1),
+         larval_life_stage = ifelse(letter == "L", life_stage, ""),
+         life_stage_2 = ifelse(letter == "L", "L",
+                             ifelse(letter == "Y", "YSL",
+                                    ifelse(letter == "J", "J", NA)))) %>%
+  select(measuring_program,
+         date,
+         time,
+         station,
+         sam_code,
+         short_name,
+         attribute,
+         observable = taxon,
+         count,
+         total_length,
+         fork_length = length_mm,
+         life_stage = life_stage_2,
+         larval_life_stage)
+str(ich_clean)
+```
+
+Write
+```{r}
+start <- first(ich_clean$date)
+end <- last(ich_clean$date)
+write.csv(ich_clean, "Written_data/Ich_20190422-20200204.csv", row.names = FALSE)
+```

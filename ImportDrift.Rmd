@@ -1,0 +1,85 @@
+---
+title: "ImportDriftData"
+author: "Catarina Pien"
+date: "12/1/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(dplyr)
+library(readxl)
+```
+
+# Drift data
+
+## Read in files, get the column names lined up, bind to data frame
+
+* List the folder where all the data are found. If there is new data, can always make a new folder. 
+* First make sure that all data files are formatted in the same way. 8 blank rows at the top, column name, then two descriptive rows. Can modify the "skip" for blank rows, and the "1:2" based on any differences. 
+```{r}
+
+drift_files <- list.files("Data_Drift", pattern="*.xlsx", full.names=TRUE)
+
+# Need to check original data files to make sure the first 8 rows are to be skipped. There was one file that was 9 I had to modify.
+ldf <- lapply(drift_files, read_excel, sheet = "Taxonomy Data", skip=8, col_types = c("text", "text", "text", "text", "skip", "skip", "skip", "skip", "skip", "text", "text", "text", "text", "text", "text", "text", "skip", "skip", "text", "text", "text", "text", "skip", "skip", "text", "skip", "skip", "skip", "skip", "skip", "skip","skip", "skip", "skip","skip", "skip", "skip", "skip", "skip", "skip","skip", "skip", "skip","skip", "skip", "skip" ))
+ldf1 <- lapply(ldf, `[`, -c(1:2),) #remove two extra rows that are descriptive rows, but still want to keep column titles.
+
+#
+```
+
+## Clean up names in each file so that they line up with each other. There were some inconsistencies in the original.
+```{r}
+f_name_change <- function(x) {
+  x <- janitor::clean_names(x)
+  names(x)[2:6] <- c("station", "time", "date", "taxon", "life_stage")
+  return(x)
+}
+
+# apply function
+ldf2 <- lapply(ldf1, f_name_change)
+```
+
+## Combine into a data frame
+```{r}
+# combine into data frame
+drift_comb <- bind_rows(ldf2, .id = "dataset")
+str(drift_comb)
+```
+
+## Select columns, rename
+```{r}
+drift_clean <- drift_comb %>%
+  mutate(measuring_program = ifelse(study == "YB", "YBFMP", "NDFA"),
+         date = as.Date(as.text(date), origin = "1899-12-30"),
+         sam_code = "",
+         short_name = "DRIFT",
+         attribute = "Drift Invertebrates") %>%
+  select(measuring_program,
+         date,
+         time,
+         station,
+         sam_code,
+         short_name,
+         attribute,
+         observable = taxon,
+         category = origin,
+         count = abundance,
+         life_stage,
+         lab_comments = lab_com,
+         condition)
+str(drift_clean)
+```
+
+Write
+```{r}
+write.csv(drift_clean, "Written_data/Drift_20190422-20210707.csv", row.names = FALSE)
+```
+
+
