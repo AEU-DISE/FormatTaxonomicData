@@ -39,6 +39,9 @@ ldf1 <- lapply(ldf, `[`, -c(1:2),) #remove two extra rows that are descriptive r
 f_name_change <- function(x) {
   x <- janitor::clean_names(x)
   names(x)[2:6] <- c("station", "time", "date", "taxon", "life_stage")
+  # other way to convert date
+  # x <- x %>%
+  #  mutate(date = janitor::excel_numeric_to_date(as.numeric(as.character(date)), date_system = "modern")) 
   return(x)
 }
 
@@ -57,7 +60,7 @@ str(drift_comb)
 ```{r}
 drift_clean <- drift_comb %>%
   mutate(measuring_program = ifelse(study == "YB", "YBFMP", "NDFA"),
-         date = as.Date(as.text(date), origin = "1899-12-30"),
+         date = as.Date(as.numeric(as.character(date)), origin = "1899-12-30"),
          sam_code = "",
          short_name = "DRIFT",
          attribute = "Drift Invertebrates") %>%
@@ -72,6 +75,8 @@ drift_clean <- drift_comb %>%
          category = origin,
          count = abundance,
          life_stage,
+         wet_mass,
+         dry_mass,
          lab_comments = lab_com,
          condition)
 str(drift_clean)

@@ -24,7 +24,9 @@ ich_df <- lapply(ich_files, read_excel, sheet = "Taxonomy Data", skip=6, col_typ
 
 ich_df1 <- lapply(ich_df, `[`, -c(1:1),)
 
-ich_comb_1 <- bind_rows(ich_df1, .id = "dataset")
+ich_comb_1 <- bind_rows(ich_df1, .id = "dataset")%>%
+  filter(!is.na(Taxon)) %>%
+  mutate(Date = lubridate::mdy(Date))
 str(ich_comb_1)
 ```
 
@@ -35,9 +37,20 @@ ich_files2 <- list.files("Data_Ich/Format2", pattern="*.xlsx", full.names=TRUE)
 ich_df2 <- lapply(ich_files2, read_excel, sheet = "Taxonomy Data", skip=6, col_types = c("text", "text", "skip", "guess", "skip", "skip", "text", "text", "text", "text", "text", "text", "text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip"))
 
 ich_df_f2 <- lapply(ich_df2, `[`, -c(1:1),)
-ich_comb_2 <- bind_rows(ich_df1, .id = "dataset")
+ich_comb_2 <- bind_rows(ich_df2, .id = "dataset") %>%
+  filter(!is.na(Taxon))%>%
+  mutate(Date = lubridate::ymd(Date))
 
 str(ich_comb_2)
+
+
+
+
+```
+
+If you only had one file:
+```{r}
+# ich_df2 <- read_excel("Data_Ich/Format2/2021 CADWR Yolo Bypass Ichthyoplankton Taxa Batch1 (pin 7976).xlsx")
 ```
 
 Combine
@@ -47,7 +60,7 @@ ich_comb <- rbind(ich_comb_1, ich_comb_2)
 
 Pivot lengths
 ```{r}
-ich_long <- pivot_longer(ich_comb, cols=9:38, values_to = "Length_mm") %>%
+ich_long <- tidyr::pivot_longer(ich_comb, cols=9:38, values_to = "Length_mm") %>%
   filter(!is.na(Length_mm))
 ```
 
@@ -58,7 +71,7 @@ ich_clean <- ich_long %>%
   janitor::clean_names() %>%
   rename(life_stage = life_stage_y_l_j) %>%
   mutate(measuring_program = "YBFMP",
-         date = lubridate::mdy(date),
+         date,
          sam_code = "",
          short_name = "ICH",
          attribute = "Ichthyoplankton", 
@@ -90,5 +103,5 @@ Write
 ```{r}
 start <- first(ich_clean$date)
 end <- last(ich_clean$date)
-write.csv(ich_clean, "Written_data/Ich_20190422-20200204.csv", row.names = FALSE)
+write.csv(ich_clean, "Written_data/Ich_20190422-20210622.csv", row.names = FALSE)
 ```
