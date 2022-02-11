@@ -13,6 +13,7 @@ Packages
 ```{r}
 library(dplyr)
 library(readxl)
+library(lubridate)
 ```
 
 #Ichthyoplankton
@@ -26,7 +27,9 @@ ich_df1 <- lapply(ich_df, `[`, -c(1:1),)
 
 ich_comb_1 <- bind_rows(ich_df1, .id = "dataset")%>%
   filter(!is.na(Taxon)) %>%
-  mutate(Date = lubridate::mdy(Date))
+  mutate(Date = lubridate::mdy(Date),
+         Time = strptime(Time, format="%H:%M")  %>%
+           strftime(Time, format = "%H:%M")) 
 str(ich_comb_1)
 ```
 
@@ -36,26 +39,39 @@ ich_files2 <- list.files("Data_Ich/Format2", pattern="*.xlsx", full.names=TRUE)
 
 ich_df2 <- lapply(ich_files2, read_excel, sheet = "Taxonomy Data", skip=6, col_types = c("text", "text", "skip", "guess", "skip", "skip", "text", "text", "text", "text", "text", "text", "text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text","text", "text", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip", "skip"))
 
+ich_df2_times <- ich_df2 
+
+
+today<-as.POSIXct('2012-01-23 00:00:00 EST')
+today + (3600*x)
+
+
 ich_df_f2 <- lapply(ich_df2, `[`, -c(1:1),)
 ich_comb_2 <- bind_rows(ich_df2, .id = "dataset") %>%
   filter(!is.na(Taxon))%>%
-  mutate(Date = lubridate::ymd(Date))
+  mutate(Date = lubridate::ymd(Date),
+         Time = as.numeric(Time),
+         Hour = floor(Time * 24),
+         Minute = (((Time*24) - Hour) * 60),
+         Time2 = paste0(Hour, ":", Minute),
+         Time2 = strptime(Time2, format="%H:%M")  %>%
+           strftime(Time2, format = "%H:%M")) 
 
-str(ich_comb_2)
+ich_comb_3 <- ich_comb_2 %>%select(-Time, -Hour, -Minute) %>%
+  rename(Time = Time2) %>%
+  select(dataset, Station, Date, Time, everything())
 
-
-
-
+str(ich_comb_3)
 ```
 
-If you only had one file:
+If you only had one file, just read in the name of the file:
 ```{r}
 # ich_df2 <- read_excel("Data_Ich/Format2/2021 CADWR Yolo Bypass Ichthyoplankton Taxa Batch1 (pin 7976).xlsx")
 ```
 
 Combine
 ```{r}
-ich_comb <- rbind(ich_comb_1, ich_comb_2)
+ich_comb <- rbind(ich_comb_1, ich_comb_3)
 ```
 
 Pivot lengths
@@ -101,7 +117,7 @@ str(ich_clean)
 
 Write
 ```{r}
-start <- first(ich_clean$date)
-end <- last(ich_clean$date)
-write.csv(ich_clean, "Written_data/Ich_20190422-20210622.csv", row.names = FALSE)
+start <- format(first(ich_clean$date), "%Y%m%d")
+end <- format(last(ich_clean$date), "%Y%m%d")
+write.csv(ich_clean, paste0("Written_data/Ich_", start, "-", end, ".csv"), row.names = FALSE)
 ```
