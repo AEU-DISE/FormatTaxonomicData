@@ -34,11 +34,25 @@ ldf1 <- lapply(ldf, `[`, -c(1:2),) #remove two extra rows that are descriptive r
 #
 ```
 
+New template
+```{r}
+drift_files <- list.files("Data_Drift", pattern="*.xlsx", full.names=TRUE)
+
+ldf1 <- lapply(drift_files, read_excel, sheet = "CADWR template", 
+              range = cell_cols(1:25),
+  col_types = c("text", "text", "text", "text", "text","text", 
+                "skip", "text", "skip", "skip", "skip", "text", 
+                "text", "text", "numeric", "text", "text", "skip", 
+                "skip", "skip", "numeric", "text", "text", "text", "text"))
+```
+
+
+
 ## Clean up names in each file so that they line up with each other. There were some inconsistencies in the original.
 ```{r}
 f_name_change <- function(x) {
   x <- janitor::clean_names(x)
-  names(x)[2:6] <- c("station", "time", "date", "taxon", "life_stage")
+  #names(x)[2:6] <- c("station", "time", "date", "taxon", "life_stage")
   # other way to convert date
   # x <- x %>%
   #  mutate(date = janitor::excel_numeric_to_date(as.numeric(as.character(date)), date_system = "modern")) 
@@ -61,6 +75,12 @@ str(drift_comb)
 drift_clean <- drift_comb %>%
   mutate(measuring_program = ifelse(study == "YB", "YBFMP", "NDFA"),
          date = as.Date(as.numeric(as.character(date)), origin = "1899-12-30"),
+         Time = as.numeric(time),
+         Hour = floor(Time * 24),
+         Minute = (((Time*24) - Hour) * 60),
+         Time2 = paste0(Hour, ":", Minute),
+         time = strptime(Time2, format="%H:%M")  %>%
+           strftime(Time2, format = "%H:%M"), 
          sam_code = "",
          short_name = "DRIFT",
          attribute = "Drift Invertebrates") %>%
@@ -71,7 +91,7 @@ drift_clean <- drift_comb %>%
          sam_code,
          short_name,
          attribute,
-         observable = taxon,
+         observable = taxon_name,
          category = origin,
          count = abundance,
          life_stage,
@@ -84,7 +104,9 @@ str(drift_clean)
 
 Write
 ```{r}
-write.csv(drift_clean, "Written_data/Drift_20190422-20210707.csv", row.names = FALSE)
+first <- format(first(drift_clean$date), "%Y%m%d")
+last <- format(last(drift_clean$date), "%Y%m%d")
+write.csv(drift_clean, paste0("Written_data/Drift_", first, "-", last, ".csv"), row.names = FALSE)
 ```
 
 
