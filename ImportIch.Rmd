@@ -3,6 +3,8 @@ title: "ImportIch"
 author: "Catarina Pien"
 date: "1/4/2022"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +19,98 @@ library(lubridate)
 ```
 
 #Ichthyoplankton
+
+## New Template format
+
+Read in file from Data_notprocessed folder.
+```{r}
+ich_files <- list.files("Data_Ich/Data_notprocessed", pattern = "*.xlsx", full.names = TRUE)
+ich_comb <- lapply(ich_files, read_excel, sheet = "New_template_blank") %>%bind_rows()
+```
+
+
+Pivot lengths
+```{r}
+ich_long <- tidyr::pivot_longer(ich_comb, cols=LENGTH_1:LENGTH_30, values_to = "Length_mm", names_to = "Length_number")# %>%
+ # filter(!is.na(Length_mm))
+```
+
+Re-organize
+Add Larval columns
+```{r}
+ich_clean <- ich_long %>%
+  janitor::clean_names() %>%
+  mutate(measuring_program = "YBFMP",
+         date,
+         time2 = paste0(hour(time), ":", minute(time)),
+         sam_code = sam_wdl_code,
+         short_name = "ICH",
+         attribute = "Ichthyoplankton", 
+         total_length = "",
+         life_stage = replace(life_stage, life_stage == "Preflexion", 
+                              "L-Preflexion"),
+         letter = substr(life_stage, 1,1),
+         larval_life_stage = ifelse(letter == "L", life_stage, ""),
+         life_stage_2 = ifelse(letter == "L", "L",
+                             ifelse(letter == "Y", "YSL",
+                                    ifelse(letter == "J", "J", NA)))) %>%
+  select(measuring_program,
+         date,
+         time = time2,
+         station,
+         sam_code,
+         short_name,
+         attribute,
+         observable = taxon_name,
+         count,
+         total_length,
+         fork_length = length_mm,
+         life_stage = life_stage_2,
+         larval_life_stage)
+str(ich_clean)
+```
+
+Write
+```{r}
+start <- format(first(ich_clean$date), "%Y%m%d")
+end <- format(last(ich_clean$date), "%Y%m%d")
+write.csv(ich_clean, paste0("Written_data/Ich_", start, "-", end, ".csv"), row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## For Old Data, not using new template
 This is the first format, where time and date were "General" in Excel file.
 ```{r}
 ich_files <- list.files("Data_Ich", pattern="*.xlsx", full.names=TRUE)
@@ -62,11 +156,6 @@ ich_comb_3 <- ich_comb_2 %>%select(-Time, -Hour, -Minute) %>%
   select(dataset, Station, Date, Time, everything())
 
 str(ich_comb_3)
-```
-
-If you only had one file, just read in the name of the file:
-```{r}
-# ich_df2 <- read_excel("Data_Ich/Format2/2021 CADWR Yolo Bypass Ichthyoplankton Taxa Batch1 (pin 7976).xlsx")
 ```
 
 Combine
