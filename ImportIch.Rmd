@@ -77,7 +77,7 @@ end <- format(last(ich_clean$date), "%Y%m%d")
 write.csv(ich_clean, paste0("Written_data/Ich_", start, "-", end, ".csv"), row.names = FALSE)
 ```
 
-
+Once done, move the data out of the Data_not processed folder! Don't really need to save the file in here, as it should also be in the Biological Data folder, but can keep it until the next round in case there are formatting issues. 
 
 
 
