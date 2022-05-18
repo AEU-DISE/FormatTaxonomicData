@@ -23,17 +23,24 @@ library(janitor)
 
 ## New Template format
 
-Read in file from Data_notprocessed folder.
+Before you start, move old data out of the Data_not processed folder! Don't really need to save the file in the repo, as it should also be in the Biological Data folder, but can keep it for a bit in case it needs to be re-processed. 
+
+
+Read in file from Data_notprocessed folder. Can change the folder if needed. Should be able to read multiple files but haven't tested with the new code.
 ```{r}
 ich_files <- list.files("Data_Ich/Data_notprocessed", pattern = "*.xlsx", full.names = TRUE)
-ich_comb <- lapply(ich_files, read_excel, sheet = "New_template_blank") %>%bind_rows()
+ich_comb <- lapply(ich_files, read_excel, sheet = "New_template_blank") %>%
+  bind_rows() %>%
+  mutate(TAXON_NAME = ifelse(TAXON_NAME == "N/A", "No Catch", TAXON_NAME))
 ```
 
-
 Pivot lengths
+
+Please check this once there are examples with catch. I ran this for an example with no catch. 
 ```{r}
-ich_long <- tidyr::pivot_longer(ich_comb, cols=LENGTH_1:LENGTH_30, values_to = "Length_mm", names_to = "Length_number")# %>%
- # filter(!is.na(Length_mm))
+ich_long <- tidyr::pivot_longer(ich_comb, cols=LENGTH_1:LENGTH_30, values_to = "Length_mm", names_to = "Length_number") %>%
+  mutate(Length_mm = ifelse(Length_number == "LENGTH_1" & TAXON_NAME == "No Catch", "NOCATCH", Length_mm))%>%
+ filter(!is.na(Length_mm))
 ```
 
 Re-organize
@@ -44,9 +51,10 @@ ich_clean <- ich_long %>%
   mutate(measuring_program = "YBFMP",
          date,
          time2 = paste0(hour(time), ":", minute(time)),
-         sam_code = sam_wdl_code,
+         sam_code = ifelse(is.na(sam_wdl_code), "", sam_wdl_code),
          short_name = "ICH",
-         attribute = "Ichthyoplankton", 
+        dwr_sample_id = ifelse(is.na(dwr_sample_id), paste0(format(date, "%Y%m%d"), "_", hour(time), minute(time), "_", station, "_", short_name), dwr_sample_id),
+           attribute = "Ichthyoplankton", 
          total_length = "",
          life_stage = replace(life_stage, life_stage == "Preflexion", 
                               "L-Preflexion"),
@@ -60,6 +68,7 @@ ich_clean <- ich_long %>%
          time = time2,
          station,
          sam_code,
+         sample_id = dwr_sample_id,
          short_name,
          attribute,
          observable = taxon_name,
@@ -67,18 +76,20 @@ ich_clean <- ich_long %>%
          total_length,
          fork_length = length_mm,
          life_stage = life_stage_2,
-         larval_life_stage)
+         larval_life_stage) %>%
+  mutate(fork_length = ifelse(fork_length == "NOCATCH", NA, fork_length))
 str(ich_clean)
 ```
 
-Write
+Write file
 ```{r}
 start <- format(first(ich_clean$date), "%Y%m%d")
 end <- format(last(ich_clean$date), "%Y%m%d")
 write.csv(ich_clean, paste0("Written_data/Ich_", start, "-", end, ".csv"), row.names = FALSE)
 ```
 
-Once done, move the data out of the Data_not processed folder! Don't really need to save the file in here, as it should also be in the Biological Data folder, but can keep it until the next round in case there are formatting issues. 
+
+
 
 
 
