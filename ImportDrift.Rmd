@@ -15,11 +15,93 @@ Packages
 ```{r}
 library(dplyr)
 library(readxl)
+library(lubridate)
+library(janitor)
 ```
 
 # Drift data
 
-## Read in files, get the column names lined up, bind to data frame
+## Current Code
+Before you start, move old data out of the Data_not processed folder! Don't really need to save the file in the repo, as it should also be in the Biological Data folder, but can keep it for a bit in case it needs to be re-processed. 
+
+* List the folder where all the data are found. If there is new data, can always make a new folder. 
+```{r}
+
+drift_files <- list.files("Data_Drift/Data_notprocessed", pattern="*.xlsx", full.names=TRUE)
+
+# Need to check original data files to make sure the first 8 rows are to be skipped. There was one file that was 9 I had to modify.
+ldf <- lapply(drift_files, read_excel, sheet = "CADWR template") %>%bind_rows()
+
+```
+
+Clean columns
+Have to check if 
+```{r}
+glimpse(drift_data_clean)
+# want date to be in dttm and time to be in chr. otherwise play with some of those commented out datetime code lines.
+
+drift_clean <- ldf %>%
+  janitor::clean_names() %>%
+  mutate(measuring_program = "YBFMP",
+         dwr_sample_id = ifelse(is.na(dwr_sample_id), paste0(format(date, "%Y%m%d"), "_", hour(hm(time)), minute(hm(time)), "_", station, "_", short_name), dwr_sample_id),
+        # time2 = paste0(hour(time), ":", minute(time)),
+        # date = as.Date(as.numeric(as.character(date)), origin = "1899-12-30"),
+        # Time = as.numeric(time),
+        # Hour = floor(Time * 24),
+        # Minute = (((Time*24) - Hour) * 60),
+        # Time2 = paste0(Hour, ":", Minute),
+        # time = strptime(Time2, format="%H:%M")  %>%
+        #   strftime(Time2, format = "%H:%M"), 
+         date = date_col,
+         sam_code = ifelse(is.na(sam_wdl_code), "", sam_wdl_code),
+         short_name = "DRIFT",
+         attribute = "Drift Invertebrates") %>%
+  select(measuring_program,
+         date,
+         time,
+         station,
+         sam_code,
+         sample_id= dwr_sample_id,
+         short_name,
+         attribute,
+         observable = taxon_name,
+         category = origin,
+         count = abundance,
+         life_stage,
+         wet_mass,
+         dry_mass,
+         lab_comments = lab_com,
+         condition)
+str(drift_clean)
+  
+```
+
+Write data
+```{r}
+first <- format(first(drift_clean$date), "%Y%m%d")
+last <- format(last(drift_clean$date), "%Y%m%d")
+write.csv(drift_clean, paste0("Written_data/Drift_", first, "-", last, ".csv"), row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Old Code for historical data, multiple files
+
+### Read in files, get the column names lined up, bind to data frame
 
 * List the folder where all the data are found. If there is new data, can always make a new folder. 
 * First make sure that all data files are formatted in the same way. 8 blank rows at the top, column name, then two descriptive rows. Can modify the "skip" for blank rows, and the "1:2" based on any differences. 
